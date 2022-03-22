@@ -6,7 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 @Slf4j
-@Component
+@Component // 싱글톤으로 활용하기 위함
 public class HelloTraceV1 {
 
     private static final String START_PREFIX = "-->";
