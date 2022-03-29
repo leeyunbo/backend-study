@@ -85,6 +85,20 @@
 #### V4 문제점 
 - 각 비즈니스 로직마다 로그를 위한 로직이 중복됨
 - 비즈니스 로직보다 로그를 위한 부가 기능 코드가 훨씬 더 많고 복잡함
+```java
+public void orderItem(TraceId traceId, String itemId) {
+    TraceStatus status = null;
+    try {
+        status = trace.begin("OrderService.orderItem()"); // 반복
+        orderRepository.save(itemId); // 비즈니스 로직
+        trace.end(status); // 반복 
+    } catch (Exception e) {
+        trace.exception(status, e); // 반복
+        throw e; // 반복
+    }
+}
+```
+
  
 <br/> 
 
