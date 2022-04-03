@@ -1,12 +1,9 @@
 package com.example.toby.user.dao;
 
 import com.example.toby.user.domain.User;
-import org.springframework.stereotype.Component;
-
 import java.sql.*;
 
-@Component
-public class UserDao {
+public abstract class UserDao {
     public void add(User user) throws ClassNotFoundException, SQLException {
         Connection c = getConnection();
 
@@ -18,8 +15,7 @@ public class UserDao {
 
         ps.executeUpdate();
 
-        ps.close();
-        c.close();
+        close(ps, c);
     }
 
     public User get(String id) throws ClassNotFoundException, SQLException {
@@ -36,35 +32,32 @@ public class UserDao {
         user.setName(rs.getString("name"));
         user.setPassword(rs.getString("passowrd"));
 
-        rs.close();
-        ps.close();
-        c.close();
+        close(rs, ps, c);
 
         return user;
     }
 
-    private Connection getConnection() throws ClassNotFoundException, SQLException {
-        Class.forName("org.mariadb.jdbc.Driver");
-        return DriverManager.getConnection(
-                "jdbc:mariadb://localhost/toby", "root", "dbsqhr1!62719");
+    protected abstract Connection getConnection() throws ClassNotFoundException, SQLException;
+
+    private void close(PreparedStatement ps, Connection c) throws SQLException {
+        ps.close();
+        c.close();
     }
 
-    public static void main(String[] args) throws ClassNotFoundException, SQLException{
-        UserDao dao = new UserDao();
+    private void close(ResultSet rs, PreparedStatement ps, Connection c) throws SQLException {
+        rs.close();
+        ps.close();
+        c.close();
+    }
 
-        User user = new User();
-        user.setId("fffffff");
-        user.setName("이윤복");
-        user.setPassword("pass");
+    private void initializedUsers() throws ClassNotFoundException, SQLException {
+        Connection c = getConnection();
 
-        dao.add(user);
+        PreparedStatement ps = c.prepareStatement(
+                "delete from users");
 
-        System.out.println(user.getId() + " 등록 성공");
+        ps.executeUpdate();
 
-        User user2 = dao.get(user.getId());
-        System.out.println(user2.getName());
-        System.out.println(user2.getPassword());
-
-        System.out.println(user2.getId() + " 조회 성공");
+        ps.close();
     }
 }
