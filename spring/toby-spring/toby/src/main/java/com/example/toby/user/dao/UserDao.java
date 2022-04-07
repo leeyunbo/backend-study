@@ -1,16 +1,18 @@
 package com.example.toby.user.dao;
 
 import com.example.toby.user.domain.User;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.sql.*;
 
-@RequiredArgsConstructor
 @Component
 public class UserDao {
 
     private final SimpleConnectionMaker simpleConnectionMaker;
+
+    public UserDao(SimpleConnectionMaker simpleConnectionMaker) {
+        this.simpleConnectionMaker = simpleConnectionMaker;
+    }
 
     public void add(User user) throws ClassNotFoundException, SQLException {
         Connection c = simpleConnectionMaker.makeConnection();
@@ -45,18 +47,7 @@ public class UserDao {
         return user;
     }
 
-    private void close(PreparedStatement ps, Connection c) throws SQLException {
-        ps.close();
-        c.close();
-    }
-
-    private void close(ResultSet rs, PreparedStatement ps, Connection c) throws SQLException {
-        rs.close();
-        ps.close();
-        c.close();
-    }
-
-    private void initializedUsers() throws ClassNotFoundException, SQLException {
+    public void initializedUsers() throws ClassNotFoundException, SQLException {
         Connection c = simpleConnectionMaker.makeConnection();
 
         PreparedStatement ps = c.prepareStatement(
@@ -67,23 +58,14 @@ public class UserDao {
         close(ps, c);
     }
 
-    public static void main(String[] args) throws ClassNotFoundException, SQLException{
-        UserDao dao = new UserDao(new NConnectionMaker());
-        dao.initializedUsers();
+    private void close(PreparedStatement ps, Connection c) throws SQLException {
+        ps.close();
+        c.close();
+    }
 
-        User user = new User();
-        user.setId("fffffff");
-        user.setName("이윤복");
-        user.setPassword("pass");
-
-        dao.add(user);
-
-        System.out.println(user.getId() + " 등록 성공");
-
-        User user2 = dao.get(user.getId());
-        System.out.println(user2.getName());
-        System.out.println(user2.getPassword());
-
-        System.out.println(user2.getId() + " 조회 성공");
+    private void close(ResultSet rs, PreparedStatement ps, Connection c) throws SQLException {
+        rs.close();
+        ps.close();
+        c.close();
     }
 }
