@@ -1,13 +1,18 @@
 package com.example.toby.user.dao;
 
 import com.example.toby.user.domain.User;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.sql.SQLException;
 
 public class UserDaoClient {
 
     public static void main(String[] args) throws SQLException, ClassNotFoundException {
-        UserDao dao = new DaoFactory().userDao();
+        ApplicationContext applicationContext =
+                new AnnotationConfigApplicationContext(DaoFactory.class);
+
+        UserDao dao = applicationContext.getBean("userDao", UserDao.class);
         dao.initializedUsers();
 
         User user = new User();
