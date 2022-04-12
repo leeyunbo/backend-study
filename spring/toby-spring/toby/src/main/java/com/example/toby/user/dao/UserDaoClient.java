@@ -7,7 +7,7 @@ import java.sql.SQLException;
 public class UserDaoClient {
 
     public static void main(String[] args) throws SQLException, ClassNotFoundException {
-        UserDao dao = new UserDao(new NConnectionMaker());
+        UserDao dao = new DaoFactory().userDao();
         dao.initializedUsers();
 
         User user = new User();
