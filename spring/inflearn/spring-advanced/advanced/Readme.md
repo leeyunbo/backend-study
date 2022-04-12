@@ -1,3 +1,14 @@
+## 목차 
+1. [로그 추적기 예시](#로그-추적기-예시)
+2. [요구사항](#요구사항)
+3. [프로젝트 버전 설명](#프로젝트-버전-설명)
+    3-1. [V1](#v1)
+    3-2. [V2](#v2)
+    3-3. [V3](#v3)
+    3-4. [V4](#v4)
+    3-5. [V5-템플릿 메서드 패턴](#v5---v4의-중복-로직-문제-해결-템플릿-메서드-패턴)
+    3-6. [V6-전략 패턴](#v6---템플릿-메서드-패턴의-단점-해결-전략-패턴)
+
 ## 로그 추적기 예시
 ### 정상 요청
 ```text
@@ -171,3 +182,88 @@ template2.execute();
      - 특정 클래스의 코드에 다른 클래스와 관련된 코드가 적혀있다는 것은 서로 강하게 의존한다는 것이다.
      - 즉, 부모 클래스가 변화한다면 자식 클래스에도 영향을 줄 수 밖에 없다.
 -  비슷한 역할을 하면서 상속의 단점을 상쇄시킬 수 있는 것이 바로 전략 패턴이다.
+
+### V6 - (템플릿 메서드 패턴의 단점 해결, 전략 패턴)
+![image](https://user-images.githubusercontent.com/44944031/162939135-5a1f3d99-c4b2-40bb-ad54-97972f52add9.png)
+- `Context`는 변하지 않는 템플릿 역할을 하고, `Strategy`는 변하는 알고리즘 역할을 한다.
+
+#### 전략패턴의 의도 
+> ##### "알고리즘 제품군을 정의하고 각각을 캡슐화하여 상호 교환 가능하게 만들자. 전략을 사용하면 알고리즘을 사용하는 클라이언트와 독립적으로 알고리즘을 변경할 수 있다."
+
+#### 전략패턴 다양한 구현 방식
+```java
+/**
+ * 필드에 전략을 보관하는 방식
+ */
+@Slf4j
+public class ContextV1 {
+
+    private Strategy strategy;
+
+    public ContextV1(Strategy strategy) {
+        this.strategy = strategy;
+    }
+
+    public void execute() {
+        long startTime = System.currentTimeMillis();
+        // 비즈니스 로직 실행 (변하는 부분)
+        strategy.call(); // 위임
+        // 비즈니스 로직 종료
+        long endTime = System.currentTimeMillis();
+        long resultTime = endTime - startTime;
+        log.info("resultTime={}", resultTime);
+    }
+}
+```
+
+```java
+@Test
+void strategyV1() {
+    StrategyLogic1 strategyLogic1 = new StrategyLogic1();
+    ContextV1 contextV1 = new ContextV1(strategyLogic1);
+    contextV1.execute();
+}
+```
+
+- 스프링에서 의존관계 주입에서 사용하는 방식이 바로 전략 패턴이다.  
+- 템플릿 메서드 패턴이 자식 부모 관계로 의존하고 있는 것과 다르게 `Context`가 인터페이스에 의존하고 있기 때문에 `StrategyLogic`이 바뀌어도 `Context`는 영향을 받지 않는다.
+
+#### 선 조립 후 실행 방식 
+- `Context`와 `Strategy`를 실행 전에 원하는 모양으로 조립해두고, 이후에는 `Context`를 실행하기만 하면 된다. 
+- 우리가 스프링으로 어플리케이션을 개발할 때 어플리케이션 로딩 시점에 의존관계 주입을 통해 필요한 의존관계를 모두 맺어두고 난 다음에 실제 요청을 처리하는 것과 같은 원리
+- 이 방식의 단점은 조립 이후에는 전략을 변경하기가 번거롭다는 점이다. 만약 실시간으로 전략을 변경해야 한다면 `Context`를 하나 더 생성하고 그곳에 다른 `Strategy`를 주입하는 것이 더 나은 선택일 수 있다.
+- 더 유연하게 전략 패턴을 사용하는 방법은 없을까?
+
+#### 전략을 파라미터로 전달해보기
+```java
+@Slf4j
+public class ContextV2 {
+
+    public void execute(Strategy strategy) {
+        long startTime = System.currentTimeMillis();
+        // 비즈니스 로직 실행 (변하는 부분)
+        strategy.call(); // 위임
+        // 비즈니스 로직 종료
+        long endTime = System.currentTimeMillis();
+        long resultTime = endTime - startTime;
+        log.info("resultTime={}", resultTime);
+    }
+}
+```
+```java
+@Test
+void strategyV1() {
+    ContextV2 context = new ContextV2();
+    context.execute(() -> log.info("비즈니스 로직1 실행"));
+    context.execute(() -> log.info("비즈니스 로직2 실행"));
+}
+```
+- 선 조립 후 실행 방식이 아닌 실행하는 시점에 `Strategy`를 전달한다.
+    - 따라서 좀 더 유연하게 변경할 수 있다. 
+    - 단점은 실행할 때 마다 전략을 계속 지정해줘야 한다는 단점이 있다.
+
+
+#### 템플릿 
+- 우리가 해결하고 싶은 문제는 변하는 부분과 변하지 않는 부분을 분리하는 것
+- 변하지 않는 부분을 템플릿이라 하고, 그 템플릿 안에서 변하는 부분에 약간의 다른 코드 조각을 넘겨서 실행하는 것이 목적이다. 
+- 우리가 원하는 것은 실행 시점에 유연하게 실행 코드 조각을 전달하는 것이다. (`ContextV2` 방식)
