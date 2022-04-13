@@ -1,13 +1,13 @@
 ## 목차 
-1. [로그 추적기 예시](#로그-추적기-예시)
-2. [요구사항](#요구사항)
-3. [프로젝트 버전 설명](#프로젝트-버전-설명)
-    3-1. [V1](#v1)
-    3-2. [V2](#v2)
-    3-3. [V3](#v3)
-    3-4. [V4](#v4)
-    3-5. [V5-템플릿 메서드 패턴](#v5---v4의-중복-로직-문제-해결-템플릿-메서드-패턴)
-    3-6. [V6-전략 패턴](#v6---템플릿-메서드-패턴의-단점-해결-전략-패턴)
+- [로그 추적기 예시](#로그-추적기-예시)
+- [요구사항](#요구사항)
+- [프로젝트 버전 설명](#프로젝트-버전-설명)
+    - [V1](#v1)
+    - [V2](#v2) 
+    - [V3](#v3) 
+    - [V4](#v4) 
+    - [V5-템플릿 메서드 패턴](#v5---v4의-중복-로직-문제-해결-템플릿-메서드-패턴)
+    - [V6-전략 패턴](#v6---템플릿-메서드-패턴의-단점-해결-전략-패턴)
 
 ## 로그 추적기 예시
 ### 정상 요청
@@ -215,16 +215,27 @@ public class ContextV1 {
     }
 }
 ```
+- 클라이언트인 `ContextV1`은 인터페이스 `Strategy`를 의존하기 때문에 `Strategy` 구현체인 알고리즘들이 변경이 되어도 서로 영향을 받지 않는다.
 
 ```java
-@Test
+@Slf4j
+public class StrategyLogic1 implements Strategy {
+    @Override
+    public void call() {
+        log.info("비즈니스 로직1 실행");
+    }
+} // 알고리즘 캡슐화
+```
+- 알고리즘을 캡슐화한다.
+
+```java
+@Test 
 void strategyV1() {
     StrategyLogic1 strategyLogic1 = new StrategyLogic1();
     ContextV1 contextV1 = new ContextV1(strategyLogic1);
     contextV1.execute();
 }
 ```
-
 - 스프링에서 의존관계 주입에서 사용하는 방식이 바로 전략 패턴이다.  
 - 템플릿 메서드 패턴이 자식 부모 관계로 의존하고 있는 것과 다르게 `Context`가 인터페이스에 의존하고 있기 때문에 `StrategyLogic`이 바뀌어도 `Context`는 영향을 받지 않는다.
 
@@ -267,3 +278,146 @@ void strategyV1() {
 - 우리가 해결하고 싶은 문제는 변하는 부분과 변하지 않는 부분을 분리하는 것
 - 변하지 않는 부분을 템플릿이라 하고, 그 템플릿 안에서 변하는 부분에 약간의 다른 코드 조각을 넘겨서 실행하는 것이 목적이다. 
 - 우리가 원하는 것은 실행 시점에 유연하게 실행 코드 조각을 전달하는 것이다. (`ContextV2` 방식)
+
+### V-7 템플릿 콜백 패턴
+- V-6에서 나왔던 `ContextV2`는 변하지 않는 템플릿 역할을 한다. 그리고 변하는 부분은 `Strategy`의 코드를 실행해서 처리한다. 이렇게 다른 코드의 인수로서 넘겨주는 실행 가능한 코드를 콜백이라고 한다. 
+
+#### 콜백 정의 
+- `callback`은 코드가 호출(`call`)은 되는데 코드가 넘겨준 곳의 뒤(`back`)에서 실행된다는 뜻이다.
+- `ContextV2` 에제에서 콜백은 `Strategy`이다. 
+- `ContextV2.execute(new Strategy...)`를 실행할 때 `Strategy`를 넘겨주고, `ContextV2` 뒤에서 `Strategy`가 실행된다. 
+- 자바에서의 콜백은 보통 메서드 자체를 넘길 수 없기 때문에 하나의 메서드를 가진 인터페이스를 구현하고 주로 익명 내부 클래스를 활용했다, 하지만 자바8 이후에는 최근에는 람다를 활용한다.
+
+
+#### 템플릿 콜백 패턴 
+![image](https://user-images.githubusercontent.com/44944031/163191669-68c4b639-3b83-48ef-a676-b6ccf91527cf.png)
+- 스프링에서는 `ContextV2`와 같은 방식의 전략 패턴을 템플릿 콜백 패턴이라고 한다. 전략 패턴에서 `Context`가 템플릿 역할을 하고 `Strategy` 부분이 콜백으로 넘어오는 형태이다. 
+- GoF패턴은 아니고, 스프링에서만 이렇게 부른다. 
+- `RestTemplate`, `JdbcTempalte`, `TransactionTemplate`, `RedisTemplate`에 템플릿 콜백 패턴이 사용된다. -> `XxxTemplate`
+
+#### 템플릿 콜백 패턴 구현 
+```java
+public interface Callback {
+    void call();
+}
+```
+```java
+@Slf4j
+public class TimeLogTemplate {
+
+    public void execute(Callback callback) {
+        long startTime = System.currentTimeMillis();
+        // 비즈니스 로직 실행 (변하는 부분)
+        callback.call(); // 위임
+        // 비즈니스 로직 종료
+        long endTime = System.currentTimeMillis();
+        long resultTime = endTime - startTime;
+        log.info("resultTime={}", resultTime);
+    }
+}
+```
+- `ContextV2`와 형태가 동일하다. 결국 `ContextV2`와 같은 형태의 전략패턴을 스프링에서는 특별하게 템플릿 콜백 패턴이라고 부른다.
+
+#### 템플릿 콜백 패턴을 이용한 로그 추적기 구현
+
+```java
+public interface TraceCallback<T> {
+
+    T call();
+}
+```
+
+```java
+public class TraceTemplate {
+
+    private final LogTrace trace;
+
+    public TraceTemplate(LogTrace trace) {
+        this.trace = trace;
+    }
+
+    public <T> T execute(String message, TraceCallback<T> callback) {
+        TraceStatus status = null;
+        try {
+            status = trace.begin(message);
+            //비즈니스 로직 실행
+            T result = callback.call();
+            //비즈니스 로직 종료
+            trace.end(status);
+            return result;
+        } catch (Exception e) {
+            trace.exception(status, e);
+            throw e;
+        }
+    }
+}
+```
+
+```java
+@Bean
+public TraceTemplate traceTemplate() {
+    return new TraceTemplate(logTrace());
+}
+```
+
+```java
+@RequiredArgsConstructor
+@RestController
+public class OrderControllerV7 {
+
+    private final OrderServiceV7 orderService;
+    private final TraceTemplate traceTemplate;
+
+    @GetMapping("/v7/request")
+    public String request(String itemId) {
+        return traceTemplate.execute("OrderController.request()", () -> {
+            orderService.orderItem(itemId);
+            return "ok";
+        });
+    }
+}
+```
+
+```java
+@RequiredArgsConstructor
+@Service
+public class OrderServiceV7 {
+
+    private final OrderRepositoryV7 orderRepository;
+    private final TraceTemplate traceTemplate;
+
+    public void orderItem(String itemId) {
+        traceTemplate.execute("OrderController.request()", () -> {
+            orderRepository.save(itemId);
+            return null;
+        });
+    }
+}
+```
+
+```java
+@Repository
+@RequiredArgsConstructor
+public class OrderRepositoryV7 {
+
+    private final TraceTemplate traceTemplate;
+
+    public void save(String itemId) {
+        traceTemplate.execute("OrderRepository.save()", () -> {
+            if (itemId.equals("ex")) {
+                throw new IllegalStateException("예외 발생!");
+            }
+            sleep(1000);
+            return null;
+        });
+    }
+
+    private void sleep(int millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
