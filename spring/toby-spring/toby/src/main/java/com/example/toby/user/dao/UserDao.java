@@ -1,18 +1,16 @@
 package com.example.toby.user.dao;
 
 import com.example.toby.user.domain.User;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.sql.*;
 
+@RequiredArgsConstructor
 @Component
 public class UserDao {
 
     private final SimpleConnectionMaker simpleConnectionMaker;
-
-    public UserDao(SimpleConnectionMaker simpleConnectionMaker) {
-        this.simpleConnectionMaker = simpleConnectionMaker;
-    }
 
     public void add(User user) throws ClassNotFoundException, SQLException {
         Connection c = simpleConnectionMaker.makeConnection();

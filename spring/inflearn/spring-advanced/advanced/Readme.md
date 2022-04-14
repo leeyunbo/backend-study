@@ -8,6 +8,7 @@
     - [V4](#v4) 
     - [V5-템플릿 메서드 패턴](#v5---v4의-중복-로직-문제-해결-템플릿-메서드-패턴)
     - [V6-전략 패턴](#v6---템플릿-메서드-패턴의-단점-해결-전략-패턴)
+    - [V7-템플릿 콜백 패턴](#v-7-템플릿-콜백-패턴)
 
 ## 로그 추적기 예시
 ### 정상 요청
@@ -326,6 +327,7 @@ public interface TraceCallback<T> {
     T call();
 }
 ```
+- callback 메서드 전달을 위한 인터페이스
 
 ```java
 public class TraceTemplate {
@@ -352,6 +354,7 @@ public class TraceTemplate {
     }
 }
 ```
+- callback을 전달 받아 로직을 실행하는 Template
 
 ```java
 @Bean
@@ -359,6 +362,8 @@ public TraceTemplate traceTemplate() {
     return new TraceTemplate(logTrace());
 }
 ```
+- `TraceTemplate`을 주입 받기 위해 스프링 빈으로 등록한다.
+- 각 클래스에 직접 생성자를 통해 주입해도 상관 없음,  스타일대로 진행
 
 ```java
 @RequiredArgsConstructor
@@ -421,3 +426,9 @@ public class OrderRepositoryV7 {
     }
 }
 ```
+- 각각 Controller, Service, Repository인데, 콜백을 구현하여 template에게 전달한다. 
+- template은 전달 받은 콜백을 자신이 원하는 시점에 실행한다.
+
+#### 본질적인 문제점 
+- 템플릿 콜백 패턴까지 적용하며 변하는 코드와 변하지 않는 코드를 분리하여, 람다까지 사용하며 코드 작성을 최소화 하였지만 결국 변경은 발생한다. 
+- 로그 추적기를 적용하기 위해서는 결국 비즈니스 로직들의 코드 수정이 필요하다.
