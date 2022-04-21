@@ -518,24 +518,17 @@ void reflection0() {
 
 ```java
 void useLambda() {
-    FunctionalInterface function1 = () -> {
-        log.info("callA");
-        return "A";
-    };
+    FunctionalInterface function1 = () -> "A";
+    lambdaDynamicCall(function1);
 
-    FunctionalInterface function2 = () -> {
-        log.info("callA");
-        return "A";
-    };
+    FunctionalInterface function2 = () -> "B";
+    lambdaDynamicCall(function2);
+}
 
-    String condition = "A";
-
-    if(condition.equals("A")) {
-        function1.doSomething();
-    }
-    else {
-        function2.doSomething();
-    }
+private void lambdaDynamicCall(FunctionalInterface function) {
+    log.info("start");
+    String result = function.doSomething();
+    log.info("result={}", result);
 }
 ```
 - 참고로 다음과 같이 람다로도 해결할 수 있긴 하다. 
