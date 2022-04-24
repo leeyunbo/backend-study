@@ -28,6 +28,9 @@
       - [동적 프록시란?](#동적-프록시란)
       - [JDK 동적 프록시 기본 예제 코드](#jdk-동적-프록시-기본-예제-코드)
       - [실행 순서](#실행-순서)
+      - [결론](#결론-1)
+      - [동적 프록시로 로그 추적기 개발](#동적-프록시로-로그-추적기-개발)
+      - [JDK 동적 프록시 한계](#jdk-동적-프록시-한계)
 
 ## 로그추적기 요구사항 추가
 ```text
@@ -656,6 +659,8 @@ void dynamicA() {
 - `(AInterface) Proxy.newProxyInstance(AInterface.class.getClassLoader(), new Class[]{AInterface.class}, handler)` 
   - 동적 프록시는 `java.lang.reflect.Proxy`를 통해서 생성할 수 있다.
   - 클래스 로더 정보, 인터페이스, 핸들러 로직을 인자로 넘겨주면 인터페이스를 기반으로 동적 프록시를 생성하고 그 결과를 반환한다.
+  - 자바는 클래스가 호출이 되면 ClassLoader에 적재가 되는데, 그렇기 때문에 어디 클래스 로더에 적재할지 인자 정보로 넘겨줘야 한다.
+
 
 #### 실행 순서 
 <img width="851" alt="image" src="https://user-images.githubusercontent.com/44944031/164974782-7fe0a6ce-f8ea-4658-b055-a3fabfd9b943.png">
@@ -664,3 +669,106 @@ void dynamicA() {
 - JDK 동적 프록시는 `invoke()`를 호출한다.
 - `TimeInvocationHandler`가 내부 로직을 수행하고, `method.invoke()`를 통해서 `AImpl`의 로직을 실행한다. 
 - `AImpl`의 `call()`이 실행되고, `TimeInvocationHandler`로 응답이 돌아온다.
+
+#### 결론 
+<img width="851" alt="image" src="https://user-images.githubusercontent.com/44944031/164974888-040fc4bb-f195-4b46-906c-96a3279d13a5.png">
+
+<img width="848" alt="image" src="https://user-images.githubusercontent.com/44944031/164974892-84402fb5-d892-4e89-be43-8305f0b6a70a.png">
+
+- 프록시 클래스를 수도 없이 만들어야 하는 문제를 해결할 필요가 없어졌다. 
+- 각각 필요한 `InvocationHandler`만 만들어서 넣어주면 된다. 
+
+#### 동적 프록시로 로그 추적기 개발 
+- JDK 동적 프록시는 인터페이스가 필수이기 때문에 V1 애플리케이션에만 적용할 수 있다. 
+```java
+public class LogTraceFilterHandler implements InvocationHandler {
+
+    private final Object target;
+    private final LogTrace logTrace;
+    private final String[] patterns;
+
+    public LogTraceFilterHandler(Object target, LogTrace logTrace, String[] patterns) {
+        this.target = target;
+        this.logTrace = logTrace;
+        this.patterns = patterns;
+    }
+
+    @Override
+    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+
+        //메서드 이름 필터
+        String methodName = method.getName();
+        //save, request, reque*, *est
+        if (!PatternMatchUtils.simpleMatch(patterns, methodName)) {
+            return method.invoke(target, args);
+        }
+
+        TraceStatus status = null;
+
+        try {
+            String message = method.getDeclaringClass().getSimpleName() + "." +
+                    method.getName() + "()";
+            status = logTrace.begin(message);
+
+            // target 호출
+            Object result = method.invoke(target, args);
+            logTrace.end(status);
+            return result;
+        } catch (Exception e) {
+            logTrace.exception(status, e);
+            throw e;
+        }
+    }
+}
+```
+- `private final Object target` : 프록시가 호출할 대상
+- `method.getDeclaringClass().getSimpleName() + "." + method.getName() + "()"` : `Method`를 통해서 호출되는 메서드 정보와 클래스 정보를 동적으로 확인할 수 있음
+- `!PatternMatchUtils.simpleMatch(patterns, methodName)` : `nolog()` 메서드가 호출되는 경우는 프록시 로직이 실행되지 않도록 제한하기 위해서 조건 추가
+
+```java
+@Configuration
+public class DynamicProxyBasicConfig {
+
+    private static final String[] PATTERNS = {"request*", "order*", "save*"};
+
+    @Bean
+    public OrderControllerV1 orderControllerV1(LogTrace logTrace) {
+        OrderControllerV1 orderController = new OrderControllerV1Impl(orderServiceV1(logTrace));
+
+        OrderControllerV1 proxy = (OrderControllerV1) Proxy.newProxyInstance(
+                OrderControllerV1.class.getClassLoader(),
+                new Class[]{OrderControllerV1.class},
+                new LogTraceFilterHandler(orderController, logTrace, PATTERNS));
+
+        return proxy;
+    }
+
+    @Bean
+    public OrderServiceV1 orderServiceV1(LogTrace logTrace) {
+        OrderServiceV1 orderService = new OrderServiceV1Impl(orderRepositoryV1(logTrace));
+
+        OrderServiceV1 proxy = (OrderServiceV1) Proxy.newProxyInstance(
+                OrderServiceV1.class.getClassLoader(),
+                new Class[]{OrderServiceV1.class},
+                new LogTraceFilterHandler(orderService, logTrace, PATTERNS));
+        return proxy;
+    }
+
+    @Bean
+    public OrderRepositoryV1 orderRepositoryV1(LogTrace logTrace) {
+        OrderRepositoryV1 orderRepository = new OrderRepositoryV1Impl();
+
+        OrderRepositoryV1 proxy = (OrderRepositoryV1) Proxy.newProxyInstance(
+                OrderRepositoryV1.class.getClassLoader(),
+                new Class[]{OrderRepositoryV1.class},
+                new LogTraceFilterHandler(orderRepository, logTrace, PATTERNS));
+        return proxy;
+    }
+}
+```
+
+<img width="854" alt="image" src="https://user-images.githubusercontent.com/44944031/164978580-611ffe8f-b697-411f-b0e0-3f8021ccfb68.png">
+
+#### JDK 동적 프록시 한계 
+- 인터페이스가 필수
+- 인터페이스가 없는 경우는 `CGLIB`라는 바이트코드 조작 라이브러리를 활용해야 한다.
