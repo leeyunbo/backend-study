@@ -73,7 +73,6 @@ public class ReflectionTest {
         }
     }
 
-
     @Test
     void useLambda() {
         FunctionalInterface function1 = () -> "A";
@@ -88,7 +87,7 @@ public class ReflectionTest {
         String result = function.doSomething();
         log.info("result={}", result);
     }
-    
+
     public interface FunctionalInterface {
         String doSomething();
     }
